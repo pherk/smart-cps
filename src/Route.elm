@@ -1,6 +1,6 @@
 module Route exposing (Route(..), fromLocation, href, modifyUrl)
 
-import Data.Article as Article
+import Data.Patient as Patient
 import Data.User as User exposing (Username)
 import Html exposing (Attribute)
 import Html.Attributes as Attr
@@ -17,10 +17,8 @@ type Route
     | Logout
     | Register
     | Settings
-    | Article Article.Slug
+    | Patient Patient.ID
     | Profile Username
-    | NewArticle
-    | EditArticle Article.Slug
 
 
 route : Parser (Route -> a) a
@@ -32,9 +30,7 @@ route =
         , Url.map Settings (s "settings")
         , Url.map Profile (s "profile" </> User.usernameParser)
         , Url.map Register (s "register")
-        , Url.map Article (s "article" </> Article.slugParser)
-        , Url.map NewArticle (s "editor")
-        , Url.map EditArticle (s "editor" </> Article.slugParser)
+        , Url.map Patient (s "patient" </> Patient.idParser)
         ]
 
 
@@ -62,17 +58,12 @@ routeToString page =
                 Settings ->
                     [ "settings" ]
 
-                Article slug ->
-                    [ "article", Article.slugToString slug ]
+                Patient id ->
+                    [ "patient", Patient.idToString id ]
 
                 Profile username ->
                     [ "profile", User.usernameToString username ]
 
-                NewArticle ->
-                    [ "editor" ]
-
-                EditArticle slug ->
-                    [ "editor", Article.slugToString slug ]
     in
     "#/" ++ String.join "/" pieces
 

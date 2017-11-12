@@ -1,13 +1,12 @@
 module Main exposing (main)
 
-import Data.Article exposing (Slug)
+import Data.Patient exposing (ID)
 import Data.Session as Session exposing (Session)
 import Data.User as User exposing (User, Username)
 import Html exposing (..)
 import Json.Decode as Decode exposing (Value)
 import Navigation exposing (Location)
-import Page.Article as Article
-import Page.Article.Editor as Editor
+import Page.Patient as Patient
 import Page.Errored as Errored exposing (PageLoadError)
 import Page.Home as Home
 import Page.Login as Login
@@ -37,9 +36,7 @@ type Page
     | Login Login.Model
     | Register Register.Model
     | Profile Username Profile.Model
-    | Article Article.Model
-    | Editor (Maybe Slug) Editor.Model
-
+    | Patient Patient.Model
 
 type PageState
     = Loaded Page
@@ -137,23 +134,10 @@ viewPage session isLoading page =
                 |> frame (Page.Profile username)
                 |> Html.map ProfileMsg
 
-        Article subModel ->
-            Article.view session subModel
+        Patient subModel ->
+            Patient.view session subModel
                 |> frame Page.Other
-                |> Html.map ArticleMsg
-
-        Editor maybeSlug subModel ->
-            let
-                framePage =
-                    if maybeSlug == Nothing then
-                        Page.NewArticle
-                    else
-                        Page.Other
-            in
-            Editor.view subModel
-                |> frame framePage
-                |> Html.map EditorMsg
-
+                |> Html.map PatientMsg
 
 
 -- SUBSCRIPTIONS --
@@ -212,10 +196,7 @@ pageSubscriptions page =
         Profile _ _ ->
             Sub.none
 
-        Article _ ->
-            Sub.none
-
-        Editor _ _ ->
+        Patient _ ->
             Sub.none
 
 
@@ -226,17 +207,15 @@ pageSubscriptions page =
 type Msg
     = SetRoute (Maybe Route)
     | HomeLoaded (Result PageLoadError Home.Model)
-    | ArticleLoaded (Result PageLoadError Article.Model)
+    | PatientLoaded (Result PageLoadError Patient.Model)
     | ProfileLoaded Username (Result PageLoadError Profile.Model)
-    | EditArticleLoaded Slug (Result PageLoadError Editor.Model)
     | HomeMsg Home.Msg
     | SettingsMsg Settings.Msg
     | SetUser (Maybe User)
     | LoginMsg Login.Msg
     | RegisterMsg Register.Msg
     | ProfileMsg Profile.Msg
-    | ArticleMsg Article.Msg
-    | EditorMsg Editor.Msg
+    | PatientMsg Patient.Msg
 
 
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
@@ -252,22 +231,6 @@ setRoute maybeRoute model =
     case maybeRoute of
         Nothing ->
             { model | pageState = Loaded NotFound } => Cmd.none
-
-        Just Route.NewArticle ->
-            case model.session.user of
-                Just user ->
-                    { model | pageState = Loaded (Editor Nothing Editor.initNew) } => Cmd.none
-
-                Nothing ->
-                    errored Page.NewArticle "You must be signed in to post an article."
-
-        Just (Route.EditArticle slug) ->
-            case model.session.user of
-                Just user ->
-                    transition (EditArticleLoaded slug) (Editor.initEdit model.session slug)
-
-                Nothing ->
-                    errored Page.Other "You must be signed in to edit an article."
 
         Just Route.Settings ->
             case model.session.user of
@@ -300,8 +263,8 @@ setRoute maybeRoute model =
         Just (Route.Profile username) ->
             transition (ProfileLoaded username) (Profile.init model.session username)
 
-        Just (Route.Article slug) ->
-            transition ArticleLoaded (Article.init model.session slug)
+        Just (Route.Patient id) ->
+            transition PatientLoaded (Patient.init model.session id)
 
 
 pageErrored : Model -> ActivePage -> String -> ( Model, Cmd msg )
@@ -350,16 +313,10 @@ updatePage page msg model =
         ( ProfileLoaded username (Err error), _ ) ->
             { model | pageState = Loaded (Errored error) } => Cmd.none
 
-        ( ArticleLoaded (Ok subModel), _ ) ->
-            { model | pageState = Loaded (Article subModel) } => Cmd.none
+        ( PatientLoaded (Ok subModel), _ ) ->
+            { model | pageState = Loaded (Patient subModel) } => Cmd.none
 
-        ( ArticleLoaded (Err error), _ ) ->
-            { model | pageState = Loaded (Errored error) } => Cmd.none
-
-        ( EditArticleLoaded slug (Ok subModel), _ ) ->
-            { model | pageState = Loaded (Editor (Just slug) subModel) } => Cmd.none
-
-        ( EditArticleLoaded slug (Err error), _ ) ->
+        ( PatientLoaded (Err error), _ ) ->
             { model | pageState = Loaded (Errored error) } => Cmd.none
 
         ( SetUser user, _ ) ->
@@ -443,21 +400,8 @@ updatePage page msg model =
         ( ProfileMsg subMsg, Profile username subModel ) ->
             toPage (Profile username) ProfileMsg (Profile.update model.session) subMsg subModel
 
-        ( ArticleMsg subMsg, Article subModel ) ->
-            toPage Article ArticleMsg (Article.update model.session) subMsg subModel
-
-        ( EditorMsg subMsg, Editor slug subModel ) ->
-            case model.session.user of
-                Nothing ->
-                    if slug == Nothing then
-                        errored Page.NewArticle
-                            "You must be signed in to post articles."
-                    else
-                        errored Page.Other
-                            "You must be signed in to edit articles."
-
-                Just user ->
-                    toPage (Editor slug) EditorMsg (Editor.update user) subMsg subModel
+        ( PatientMsg subMsg, Patient subModel ) ->
+            toPage Patient PatientMsg (Patient.update model.session) subMsg subModel
 
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the

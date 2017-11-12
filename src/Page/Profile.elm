@@ -11,12 +11,11 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Http
 import Page.Errored as Errored exposing (PageLoadError, pageLoadError)
-import Request.Article exposing (ListConfig, defaultListConfig)
+import Request.Patient exposing (ListConfig, defaultListConfig)
 import Request.Profile
 import SelectList exposing (SelectList)
 import Task exposing (Task)
 import Util exposing ((=>), pair, viewIf)
-import Views.Article.Feed as Feed exposing (FeedSource, authorFeed, favoritedFeed)
 import Views.Errors as Errors
 import Views.Page as Page
 import Views.User.Follow as Follow
@@ -28,7 +27,6 @@ import Views.User.Follow as Follow
 type alias Model =
     { errors : List String
     , profile : Profile
-    , feed : Feed.Model
     }
 
 
@@ -47,14 +45,11 @@ init session username =
             Request.Profile.get username maybeAuthToken
                 |> Http.toTask
 
-        loadFeedSources =
-            Feed.init session (defaultFeedSources username)
-
         handleLoadError _ =
             "Profile is currently unavailable."
                 |> pageLoadError (Page.Profile username)
     in
-    Task.map2 (Model []) loadProfile loadFeedSources
+    Task.map (Model []) loadProfile 
         |> Task.mapError handleLoadError
 
 
@@ -81,8 +76,6 @@ view session model =
                     [ viewProfileInfo isMyProfile profile ]
                 ]
             ]
-        , div [ class "container" ]
-            [ div [ class "row" ] [ viewFeed model.feed ] ]
         ]
 
 
@@ -92,16 +85,8 @@ viewProfileInfo isMyProfile profile =
         [ img [ class "user-img", UserPhoto.src profile.image ] []
         , h4 [] [ User.usernameToHtml profile.username ]
         , p [] [ text (Maybe.withDefault "" profile.bio) ]
-        , viewIf (not isMyProfile) (followButton profile)
+--        , viewIf (not isMyProfile) (followButton profile)
         ]
-
-
-viewFeed : Feed.Model -> Html Msg
-viewFeed feed =
-    div [ class "col-xs-12 col-md-10 offset-md-1" ] <|
-        div [ class "articles-toggle" ]
-            [ Feed.viewFeedSources feed |> Html.map FeedMsg ]
-            :: (Feed.viewArticles feed |> List.map (Html.map FeedMsg))
 
 
 
@@ -110,9 +95,6 @@ viewFeed feed =
 
 type Msg
     = DismissErrors
-    | ToggleFollow
-    | FollowCompleted (Result Http.Error Profile)
-    | FeedMsg Feed.Msg
 
 
 update : Session -> Msg -> Model -> ( Model, Cmd Msg )
@@ -125,43 +107,5 @@ update session msg model =
         DismissErrors ->
             { model | errors = [] } => Cmd.none
 
-        ToggleFollow ->
-            case session.user of
-                Nothing ->
-                    { model | errors = model.errors ++ [ "You are currently signed out. You must be signed in to follow people." ] }
-                        => Cmd.none
-
-                Just user ->
-                    user.token
-                        |> Request.Profile.toggleFollow
-                            profile.username
-                            profile.following
-                        |> Http.send FollowCompleted
-                        |> pair model
-
-        FollowCompleted (Ok newProfile) ->
-            { model | profile = newProfile } => Cmd.none
-
-        FollowCompleted (Err error) ->
-            model => Cmd.none
-
-        FeedMsg subMsg ->
-            let
-                ( newFeed, subCmd ) =
-                    Feed.update session subMsg model.feed
-            in
-            { model | feed = newFeed } => Cmd.map FeedMsg subCmd
-
-
-followButton : Profile -> Html Msg
-followButton =
-    Follow.button (\_ -> ToggleFollow)
-
-
 
 -- INTERNAL --
-
-
-defaultFeedSources : Username -> SelectList FeedSource
-defaultFeedSources username =
-    SelectList.fromLists [] (authorFeed username) [ favoritedFeed username ]
