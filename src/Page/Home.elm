@@ -4,12 +4,12 @@ module Page.Home exposing (Model, Msg, init, update, view)
 -}
 
 import Data.Patient as Patient exposing (Tag)
-import Data.Session as Session exposing (Session)
+import Data.Session exposing (Session)
 import Html exposing (..)
 import Html.Attributes exposing (attribute, class, classList, href, id, placeholder)
 import Html.Events exposing (onClick)
 import Http
-import Page.Errored as Errored exposing (PageLoadError, pageLoadError)
+import Page.Errored exposing (PageLoadError, pageLoadError)
 import Request.Patient
 import SelectList exposing (SelectList)
 import Task exposing (Task)
@@ -28,7 +28,7 @@ type alias Model =
 init : Session -> Task PageLoadError Model
 init session =
     let
-        loadPatients =
+        loadPatients = 
             Request.Patient.tags
                 |> Http.toTask
 

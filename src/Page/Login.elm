@@ -3,18 +3,18 @@ module Page.Login exposing (ExternalMsg(..), Model, Msg, initialModel, update, v
 {-| The login page.
 -}
 
-import Data.Session as Session exposing (Session)
-import Data.User as User exposing (User)
+import Data.Session exposing (Session)
+import Data.User exposing (User)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
 import Json.Decode as Decode exposing (Decoder, decodeString, field, string)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optional)
+import Json.Decode.Pipeline exposing (decode, optional)
 import Request.User exposing (storeSession)
 import Route exposing (Route)
 import Util exposing ((=>))
-import Validate exposing (..)
+import Validate exposing (Validator, ifBlank, validate)
 import Views.Form as Form
 
 
@@ -99,7 +99,7 @@ update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
         SubmitForm ->
-            case validate model of
+            case validate modelValidator model of
                 [] ->
                     { model | errors = [] }
                         => Http.send LoginCompleted (Request.User.login model)
@@ -130,7 +130,7 @@ update msg model =
                                 |> Result.withDefault []
 
                         _ ->
-                            [ "unable to process registration" ]
+                            [ "unable to perform login" ]
             in
             { model | errors = List.map (\errorMessage -> Form => errorMessage) errorMessages }
                 => Cmd.none
@@ -177,17 +177,18 @@ type alias Error =
     ( Field, String )
 
 
-validate : Model -> List Error
-validate =
+modelValidator : Validator Error Model
+modelValidator =
     Validate.all
-        [ .email >> ifBlank (Email => "email can't be blank.")
-        , .password >> ifBlank (Password => "password can't be blank.")
+        [ ifBlank .email (Email => "email can't be blank.")
+        , ifBlank .password (Password => "password can't be blank.")
         ]
 
 
 errorsDecoder : Decoder (List String)
 errorsDecoder =
-    decode (\email username password -> List.concat [ email, username, password ])
+    decode (\emailOrPassword email username password -> List.concat [ emailOrPassword, email, username, password ])
+        |> optionalError "email or password"
         |> optionalError "email"
         |> optionalError "username"
         |> optionalError "password"

@@ -63,14 +63,23 @@ view session model =
         patient =
             model.patient
 
+        buttons =
+            viewButtons patient session.user
     in
     div [ class "article-page" ]
         [ viewBanner model.errors patient session.user
         , div [ class "container page" ]
             [ div [ class "row article-content" ]
-                [ div [ class "col-md-12" ]
+                [ div [ class "col-md-12" ] 
 --                    [ Patient.nameToHtml patient.name [] ]
-                      [ text patient.name.family ]
+                      [   text patient.name.family ]
+                ]                
+            , hr [] []
+            , div [ class "article-actions" ]
+                  buttons
+            , div [ class "row" ]
+                [ div [ class "col-xs-12 col-md-8 offset-md-2" ] 
+                      [ text "comments"]
                 ]
             ]
         ]

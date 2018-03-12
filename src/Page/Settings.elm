@@ -1,6 +1,6 @@
 module Page.Settings exposing (ExternalMsg(..), Model, Msg, init, update, view)
 
-import Data.Session as Session exposing (Session)
+import Data.Session exposing (Session)
 import Data.User as User exposing (User)
 import Data.UserPhoto as UserPhoto
 import Html exposing (Html, button, div, fieldset, h1, input, text, textarea)
@@ -8,11 +8,11 @@ import Html.Attributes exposing (attribute, class, defaultValue, placeholder, ty
 import Html.Events exposing (onInput, onSubmit)
 import Http
 import Json.Decode as Decode exposing (Decoder, decodeString, field, list, string)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optional)
+import Json.Decode.Pipeline exposing (decode, optional)
 import Request.User exposing (storeSession)
 import Route
 import Util exposing ((=>), pair)
-import Validate exposing (..)
+import Validate exposing (Validator, ifBlank, validate)
 import Views.Form as Form
 
 
@@ -128,7 +128,7 @@ update : Session -> Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update session msg model =
     case msg of
         SubmitForm ->
-            case validate model of
+            case validate modelValidator model of
                 [] ->
                     session.user
                         |> Maybe.map .token
@@ -224,11 +224,11 @@ type alias Error =
     ( Field, String )
 
 
-validate : Model -> List Error
-validate =
+modelValidator : Validator Error Model
+modelValidator =
     Validate.all
-        [ .username >> ifBlank (Username => "username can't be blank.")
-        , .email >> ifBlank (Email => "email can't be blank.")
+        [ ifBlank .username (Username => "username can't be blank.")
+        , ifBlank .email (Email => "email can't be blank.")
         ]
 
 

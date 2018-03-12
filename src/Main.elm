@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Data.Patient exposing (ID)
-import Data.Session as Session exposing (Session)
+import Data.Session exposing (Session)
 import Data.User as User exposing (User, Username)
 import Html exposing (..)
 import Json.Decode as Decode exposing (Value)
@@ -243,6 +243,9 @@ setRoute maybeRoute model =
         Just Route.Home ->
             transition HomeLoaded (Home.init model.session)
 
+        Just Route.Root ->
+            model => Route.modifyUrl Route.Home
+
         Just Route.Login ->
             { model | pageState = Loaded (Login Login.initialModel) } => Cmd.none
 
@@ -321,9 +324,6 @@ updatePage page msg model =
 
         ( SetUser user, _ ) ->
             let
-                session =
-                    model.session
-
                 cmd =
                     -- If we just signed out, then redirect to Home.
                     if session.user /= Nothing && user == Nothing then
@@ -345,10 +345,6 @@ updatePage page msg model =
                             model
 
                         Settings.SetUser user ->
-                            let
-                                session =
-                                    model.session
-                            in
                             { model | session = { user = Just user } }
             in
             { newModel | pageState = Loaded (Settings pageModel) }
@@ -365,10 +361,6 @@ updatePage page msg model =
                             model
 
                         Login.SetUser user ->
-                            let
-                                session =
-                                    model.session
-                            in
                             { model | session = { user = Just user } }
             in
             { newModel | pageState = Loaded (Login pageModel) }
@@ -385,10 +377,6 @@ updatePage page msg model =
                             model
 
                         Register.SetUser user ->
-                            let
-                                session =
-                                    model.session
-                            in
                             { model | session = { user = Just user } }
             in
             { newModel | pageState = Loaded (Register pageModel) }
