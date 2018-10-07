@@ -1,12 +1,13 @@
-module Route exposing (Route(..), fromLocation, href, modifyUrl)
+module Route exposing (Route(..), fromUrl, href, replaceUrl)
 
-import Data.Patient as Patient
-import Data.User as User exposing (Username)
+import FHIR.Resources.ID as ID exposing (ID)
+import Browser.Navigation as Nav
 import Html exposing (Attribute)
 import Html.Attributes as Attr
-import Navigation exposing (Location)
-import UrlParser as Url exposing ((</>), Parser, oneOf, parseHash, s, string)
-
+import Profile exposing (Profile)
+import Url exposing (Url)
+import Url.Parser as Parser exposing ((</>), Parser, oneOf, s, string)
+import Username exposing (Username)
 
 -- ROUTING --
 
@@ -18,25 +19,50 @@ type Route
     | Logout
     | Register
     | Settings
-    | Patient Patient.ID
+    | Resource ID
     | Profile Username
+    | NewResource
+    | EditResource ID
 
 
-route : Parser (Route -> a) a
-route =
+parser : Parser (Route -> a) a
+parser =
     oneOf
-        [ Url.map Home (s "")
-        , Url.map Login (s "login")
-        , Url.map Logout (s "logout")
-        , Url.map Settings (s "settings")
-        , Url.map Profile (s "profile" </> User.usernameParser)
-        , Url.map Register (s "register")
-        , Url.map Patient (s "patient" </> Patient.idParser)
+        [ Parser.map Home (s "")
+        , Parser.map Login (s "login")
+        , Parser.map Logout (s "logout")
+        , Parser.map Settings (s "settings")
+        , Parser.map Profile (s "profile" </> Username.urlParser)
+        , Parser.map Register (s "register")
+        , Parser.map Resource (s "resource" </> ID.urlParser)
+        , Parser.map NewResource (s "editor")
+        , Parser.map EditResource (s "editor" </> ID.urlParser)
         ]
 
 
+-- PUBLIC HELPERS
 
--- INTERNAL --
+
+href : Route -> Attribute msg
+href targetRoute =
+    Attr.href (routeToString targetRoute)
+
+
+replaceUrl : Nav.Key -> Route -> Cmd msg
+replaceUrl key route =
+    Nav.replaceUrl key (routeToString route)
+
+
+fromUrl : Url -> Maybe Route
+fromUrl url =
+    -- The RealWorld spec treats the fragment like a path.
+    -- This makes it *literally* the path, so we can proceed
+    -- with parsing as if it had been a normal path all along.
+    { url | path = Maybe.withDefault "" url.fragment, fragment = Nothing }
+        |> Parser.parse parser
+
+
+-- INTERNAL 
 
 
 routeToString : Route -> String
@@ -62,33 +88,18 @@ routeToString page =
                 Settings ->
                     [ "settings" ]
 
-                Patient id ->
-                    [ "patient", Patient.idToString id ]
+                Resource id ->
+                    [ "resource", ID.toString id ]
 
                 Profile username ->
-                    [ "profile", User.usernameToString username ]
+                    [ "profile", Username.toString username ]
 
+                NewResource ->
+                    [ "editor" ]
+
+                EditResource id ->
+                    [ "editor", ID.toString id ]
     in
     "#/" ++ String.join "/" pieces
 
 
-
--- PUBLIC HELPERS --
-
-
-href : Route -> Attribute msg
-href route =
-    Attr.href (routeToString route)
-
-
-modifyUrl : Route -> Cmd msg
-modifyUrl =
-    routeToString >> Navigation.modifyUrl
-
-
-fromLocation : Location -> Maybe Route
-fromLocation location =
-    if String.isEmpty location.hash then
-        Just Root
-    else
-        parseHash route location
