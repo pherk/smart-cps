@@ -1,86 +1,83 @@
 module RoutingTests exposing (..)
 
-import Data.Article as Article exposing (Slug)
-import Data.User as User exposing (Username)
+import FHIR.Resource as Resource exposing (Resource)
+import FHIR.Resources.ID as ID exposing (ID)
 import Expect exposing (Expectation)
-import Json.Decode exposing (decodeString)
-import Navigation exposing (Location)
+import Json.Decode as Decode exposing (decodeString)
 import Route exposing (Route(..))
 import Test exposing (..)
+import Url exposing (Url)
+import Username exposing (Username)
 
 
 -- TODO need to add lots more tests!
 
 
-fromLocation : Test
-fromLocation =
-    describe "Route.fromLocation"
-        [ testLocation "" Root
-        , testLocation "#login" Login
-        , testLocation "#logout" Logout
-        , testLocation "#settings" Settings
-        , testLocation "#profile/foo" (Profile (usernameFromStr "foo"))
-        , testLocation "#register" Register
-        , testLocation "#article/foo" (Article (slugFromStr "foo"))
-        , testLocation "#editor" NewArticle
-        , testLocation "#editor/foo" (EditArticle (slugFromStr "foo"))
+fromUrl : Test
+fromUrl =
+    describe "Route.fromUrl"
+        [ testUrl "" Home
+        , testUrl "#" Root
+        , testUrl "login" Login
+        , testUrl "logout" Logout
+        , testUrl "settings" Settings
+        , testUrl "profile/foo" (Profile (usernameFromStr "foo"))
+        , testUrl "register" Register
+        , testUrl "resource/foo" (Resource (idFromStr "foo"))
+        , testUrl "editor" NewResource
+        , testUrl "editor/foo" (EditResource (idFromStr "foo"))
         ]
 
 
 
--- HELPERS --
+-- HELPERS
 
 
-testLocation : String -> Route -> Test
-testLocation hash route =
+testUrl : String -> Route -> Test
+testUrl hash route =
     test ("Parsing hash: \"" ++ hash ++ "\"") <|
         \() ->
-            makeHashLocation hash
-                |> Route.fromLocation
+            fragment hash
+                |> Route.fromUrl
                 |> Expect.equal (Just route)
 
 
-makeHashLocation : String -> Location
-makeHashLocation hash =
-    { hash = hash
-    , href = ""
-    , host = ""
-    , hostname = ""
-    , protocol = ""
-    , origin = ""
-    , port_ = ""
-    , pathname = ""
-    , search = ""
-    , username = ""
-    , password = ""
+fragment : String -> Url
+fragment frag =
+    { protocol = Url.Http
+    , host = "foo.com"
+    , port_ = Nothing
+    , path = "bar"
+    , query = Nothing
+    , fragment = Just frag
     }
 
 
 
--- CONSTRUCTING UNEXPOSED VALUES --
--- By decoding values that are not intended to be exposed directly - and crashing
--- if they cannot be decoded, since crashing is harmless in tests - we can let
+-- CONSTRUCTING UNEXPOSED VALUES
+-- By decoding values that are not intended to be exposed directly - and erroring
+-- if they cannot be decoded, since this is harmless in tests - we can let
 -- our internal modules continue to expose only the intended ways of
 -- constructing those, while still being able to test them.
 
 
 usernameFromStr : String -> Username
 usernameFromStr str =
-    case decodeString User.usernameDecoder ("\"" ++ str ++ "\"") of
+    case decodeString Username.decoder ("\"" ++ str ++ "\"") of
         Ok username ->
             username
 
         Err err ->
-            Debug.crash ("Error decoding Username from \"" ++ str ++ "\": " ++ err)
+            Debug.todo ("Error decoding Username from \"" ++ str ++ "\": " ++ Decode.errorToString err)
 
 
-slugFromStr : String -> Slug
-slugFromStr str =
+idFromStr : String -> ID
+idFromStr str =
     let
         json =
             """
             { "description": null
-            , "slug": \"""" ++ str ++ """"
+            , "id": \"""" ++ str ++ """"
             , "title": ""
             , "tagList": []
             , "createdAt": "2012-04-23T18:25:43.511Z"
@@ -96,10 +93,10 @@ slugFromStr str =
             }
         """
     in
-    case decodeString Article.decoder json of
-        Ok article ->
-            article.slug
+    case decodeString (Resource.previewDecoder Nothing) json of
+        Ok resource ->
+            Resource.id resource
 
         Err err ->
-            Debug.crash ("Error decoding Slug from \"" ++ str ++ "\": " ++ err)
+            Debug.todo ("Error decoding ID from \"" ++ str ++ "\": " ++ Decode.errorToString err)
 

@@ -28,7 +28,8 @@ type Route
 parser : Parser (Route -> a) a
 parser =
     oneOf
-        [ Parser.map Home (s "")
+        [ Parser.map Home Parser.top
+        , Parser.map Root (s "#")
         , Parser.map Login (s "login")
         , Parser.map Logout (s "logout")
         , Parser.map Settings (s "settings")
